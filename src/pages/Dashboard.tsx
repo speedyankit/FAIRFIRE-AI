@@ -9,15 +9,47 @@ import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer } 
 export function Dashboard() {
   const { candidates, updateCandidateStatus } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterSkills, setFilterSkills] = useState('');
+  const [minScore, setMinScore] = useState<number | ''>('');
+  const [maxScore, setMaxScore] = useState<number | ''>('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
 
   const [statusChangeModal, setStatusChangeModal] = useState<{id: string, status: Candidate['status']} | null>(null);
   const [statusReason, setStatusReason] = useState('');
 
-  const filteredCandidates = candidates.filter(c => 
-    c.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    c.status.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredCandidates = candidates.filter(c => {
+    // Search Term
+    const matchesSearch = c.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          c.status.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Skills Filtering
+    const searchSkills = filterSkills.toLowerCase().split(',').map(s => s.trim()).filter(s => s);
+    const candidateSkills = [...(c.skills.technical || []), ...(c.skills.soft || []), ...(c.skills.credentials || [])].map(s => s.toLowerCase());
+    const matchesSkills = searchSkills.length === 0 || searchSkills.some(searchSkill => candidateSkills.some(cSkill => cSkill.includes(searchSkill)));
+
+    // Score Filtering
+    const skillScore = c.scores.skill;
+    const matchesMinScore = minScore === '' || skillScore >= Number(minScore);
+    const matchesMaxScore = maxScore === '' || skillScore <= Number(maxScore);
+
+    // Date Filtering
+    let matchesDate = true;
+    const candidateDate = new Date(c.uploadDate);
+    if (dateFrom) {
+      matchesDate = matchesDate && candidateDate >= new Date(dateFrom);
+    }
+    if (dateTo) {
+      const to = new Date(dateTo);
+      to.setHours(23, 59, 59, 999);
+      matchesDate = matchesDate && candidateDate <= to;
+    }
+
+    return matchesSearch && matchesSkills && matchesMinScore && matchesMaxScore && matchesDate;
+  });
 
   const avgSkill = candidates.length > 0 
     ? Math.round(candidates.reduce((acc, c) => acc + c.scores.skill, 0) / candidates.length)
@@ -95,20 +127,77 @@ export function Dashboard() {
 
       {/* Table Section */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full">
-        <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <input 
-              type="text"
-              placeholder="Search by ID or Status..."
-              className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:ring-1 focus:ring-black w-64"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+        <div className="p-4 border-b border-gray-100 flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input 
+                type="text"
+                placeholder="Search by ID or Status..."
+                className="pl-9 pr-4 py-2 w-full border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:ring-1 focus:ring-black"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <button 
+              onClick={() => setShowFilters(!showFilters)}
+              className={cn("text-xs font-medium px-3 py-2 rounded-lg flex items-center gap-2 transition-colors border", showFilters ? "bg-black text-white border-black" : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50")}
+            >
+              <Filter size={14} /> {showFilters ? 'Hide Filters' : 'Show Filters'}
+            </button>
           </div>
-          <button className="text-xs font-medium text-blue-600 flex items-center gap-1 hover:text-blue-700">
-            <Filter size={14} /> Filter
-          </button>
+          
+          {showFilters && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-gray-100">
+              <div>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Skills (comma-separated)</label>
+                <input 
+                  type="text"
+                  placeholder="e.g., React, Python"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:ring-1 focus:ring-black"
+                  value={filterSkills}
+                  onChange={(e) => setFilterSkills(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Score Range</label>
+                <div className="flex gap-2">
+                  <input 
+                    type="number"
+                    placeholder="Min"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:ring-1 focus:ring-black"
+                    value={minScore}
+                    onChange={(e) => setMinScore(e.target.value !== '' ? Number(e.target.value) : '')}
+                  />
+                  <input 
+                    type="number"
+                    placeholder="Max"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:ring-1 focus:ring-black"
+                    value={maxScore}
+                    onChange={(e) => setMaxScore(e.target.value !== '' ? Number(e.target.value) : '')}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Upload Date (From)</label>
+                <input 
+                  type="date"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:ring-1 focus:ring-black"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Upload Date (To)</label>
+                <input 
+                  type="date"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:ring-1 focus:ring-black"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
         </div>
         
         <div className="overflow-x-auto">
