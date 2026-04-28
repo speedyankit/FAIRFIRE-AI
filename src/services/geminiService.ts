@@ -4,7 +4,17 @@ let aiClient: GoogleGenAI | null = null;
 
 export function getAI(): GoogleGenAI {
   if (!aiClient) {
-    const key = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    let key = '';
+    
+    // In Vite, import.meta.env is used. process.env might not be defined.
+    if (typeof import.meta !== 'undefined' && import.meta.env) {
+      key = import.meta.env.VITE_GEMINI_API_KEY;
+    }
+    
+    if (!key && typeof process !== 'undefined' && process.env) {
+      key = process.env.GEMINI_API_KEY || '';
+    }
+
     if (!key) {
       throw new Error("GEMINI_API_KEY environment variable is required");
     }
