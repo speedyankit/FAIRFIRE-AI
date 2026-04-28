@@ -1,9 +1,12 @@
 import { ReactNode } from 'react';
 import { NavLink, Link } from 'react-router-dom';
-import { LayoutDashboard, FileText, ScanSearch, BarChart4, Settings } from 'lucide-react';
+import { LayoutDashboard, FileText, ScanSearch, BarChart4, Settings, LogIn, LogOut, User as UserIcon } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useAppStore } from '../../store/AppContext';
 
 export function Sidebar() {
+  const { user, login, logout, authLoading } = useAppStore();
+
   const links = [
     { name: 'Dashboard', to: '/', icon: LayoutDashboard },
     { name: 'Upload Resume', to: '/upload', icon: FileText },
@@ -50,6 +53,37 @@ export function Sidebar() {
       </div>
 
       <div className="mt-auto">
+        <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Account</h3>
+        <ul className="space-y-1 mb-4">
+          {!authLoading && user ? (
+            <>
+              <li>
+                <div className="flex items-center gap-3 px-3 py-2 w-full text-left rounded-md text-sm font-medium text-black bg-gray-50 mb-1">
+                  {user.photoURL ? (
+                    <img src={user.photoURL} alt="User avatar" className="w-5 h-5 rounded-full" />
+                  ) : (
+                    <UserIcon size={18} />
+                  )}
+                  <span className="truncate">{user.displayName || user.email}</span>
+                </div>
+              </li>
+              <li>
+                <button onClick={logout} className="flex items-center gap-3 px-3 py-2 w-full text-left rounded-md transition-colors text-sm font-medium text-red-600 hover:bg-red-50">
+                  <LogOut size={18} />
+                  Sign Out
+                </button>
+              </li>
+            </>
+          ) : (
+            <li>
+              <button disabled={authLoading} onClick={login} className="flex items-center gap-3 px-3 py-2 w-full text-left rounded-md transition-colors text-sm font-medium text-black hover:bg-gray-100 border border-gray-200">
+                <LogIn size={18} />
+                {authLoading ? 'Loading...' : 'Sign in with Google'}
+              </button>
+            </li>
+          )}
+        </ul>
+
         <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">System</h3>
         <ul className="space-y-1">
           <li>

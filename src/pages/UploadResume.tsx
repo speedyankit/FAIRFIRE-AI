@@ -12,7 +12,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 export function UploadResume() {
-  const { jobDescription, setJobDescription, addCandidate } = useAppStore();
+  const { jobDescription, setJobDescription, addCandidate, user } = useAppStore();
   const navigate = useNavigate();
   const [resumeText, setResumeText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -94,6 +94,13 @@ export function UploadResume() {
 
       const result = await processResumePipeline(resumeText, jobDescription);
       
+      let newStatus: 'Shortlisted' | 'Reviewed' | 'Rejected' | 'Pending' = 'Reviewed';
+      if (result.scores.skill >= 80) {
+        newStatus = 'Shortlisted';
+      } else if (result.scores.skill < 60) {
+        newStatus = 'Rejected';
+      }
+
       const newCandidate = {
         id: `CAND-${Math.floor(1000 + Math.random() * 9000)}`,
         originalText: resumeText,
@@ -103,14 +110,22 @@ export function UploadResume() {
         demographics: result.demographics,
         scores: result.scores,
         explanation: result.explanation,
-        status: 'Pending' as const,
+        status: newStatus,
         uploadDate: new Date().toISOString(),
-        auditTrail: [{
-          timestamp: new Date().toISOString(),
-          reviewerId: 'SYSTEM',
-          action: 'Created',
-          reason: 'Initial pipeline extraction'
-        }]
+        auditTrail: [
+          {
+            timestamp: new Date().toISOString(),
+            reviewerId: user?.email || 'SYSTEM',
+            action: 'Created',
+            reason: 'Initial pipeline extraction'
+          },
+          {
+            timestamp: new Date().toISOString(),
+            reviewerId: 'SYSTEM',
+            action: `Auto-assigned status: ${newStatus}`,
+            reason: `Based on score rules (score: ${result.scores.skill})`
+          }
+        ]
       };
 
       addCandidate(newCandidate);

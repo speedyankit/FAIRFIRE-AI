@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { User } from 'firebase/auth';
+import { auth, loginWithGoogle, logout as firebaseLogout } from '../lib/firebase';
 import { Candidate } from '../types';
 
 interface AppState {
@@ -8,6 +10,10 @@ interface AppState {
   addCandidate: (c: Candidate) => void;
   updateCandidateStatus: (id: string, status: Candidate['status'], reason: string) => void;
   clearCandidates: () => void;
+  user: User | null;
+  login: () => Promise<void>;
+  logout: () => Promise<void>;
+  authLoading: boolean;
 }
 
 const defaultJD = `We are looking for a rockstar Full Stack Developer to join our fast-paced ninja team. You should be young, energetic, and a great culture fit (work hard, play hard). Must have 5+ years of React and Python experience. Recent grads from top universities preferred.
@@ -183,6 +189,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return saved || defaultJD;
   });
 
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setUser(user);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const login = async () => {
+    await loginWithGoogle();
+  };
+
+  const logout = async () => {
+    await firebaseLogout();
+  };
+
   useEffect(() => {
     localStorage.setItem('fairhire_candidates', JSON.stringify(candidates));
   }, [candidates]);
@@ -201,7 +226,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           status,
           auditTrail: [
             ...c.auditTrail,
-            { timestamp: new Date().toISOString(), reviewerId: 'HR-Admin', action: `Status Changed: ${status}`, reason }
+            { timestamp: new Date().toISOString(), reviewerId: user?.email || 'Guest', action: `Status Changed: ${status}`, reason }
           ]
         };
       }
@@ -217,7 +242,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setJobDescription,
       addCandidate,
       updateCandidateStatus,
-      clearCandidates
+      clearCandidates,
+      user,
+      login,
+      logout,
+      authLoading
     }}>
       {children}
     </AppContext.Provider>
